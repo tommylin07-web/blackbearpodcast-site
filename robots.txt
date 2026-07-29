@@ -1,0 +1,7 @@
+# 黑熊电台 BlackBear Podcast
+# 欢迎搜索引擎与 AI 检索工具抓取全站内容（含节目文稿）
+
+User-agent: *
+Allow: /
+
+Sitemap: https://blackbearpodcast.com/sitemap-index.xml
