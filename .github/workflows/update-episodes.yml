@@ -1,0 +1,54 @@
+name: Update episodes from RSS
+
+# After a new episode shows up on the wavpub feed, commit the generated pages
+# to main. GitHub Pages already publishes this repository from main (legacy
+# branch source). A push made with GITHUB_TOKEN does not start
+# pages-build-deployment, so the job asks Pages to build that same source.
+
+on:
+  schedule:
+    # 18:30 Asia/Shanghai. GitHub runs this in UTC, and only from the default branch.
+    - cron: "30 10 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: rss-episode-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Add episodes that are new in the wavpub RSS
+        id: sync
+        run: |
+          python3 scripts/update_episodes.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No new episodes."
+            exit 0
+          fi
+          git commit -m "Update episodes from the wavpub RSS"
+          git push origin HEAD
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Rebuild GitHub Pages from main
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/pages/builds"
